@@ -216,8 +216,11 @@ document.onmousemove=e=>{mx=e.clientX;my=e.clientY;cursor.style.left=mx+'px';cur
 document.querySelectorAll('a,button,.photo-item').forEach(el=>{el.onmouseenter=()=>{cursor.style.width='14px';cursor.style.height='14px';ring.style.width='52px';ring.style.height='52px';};el.onmouseleave=()=>{cursor.style.width='8px';cursor.style.height='8px';ring.style.width='36px';ring.style.height='36px';};});
 
 document.getElementById('year').textContent=new Date().getFullYear();
-cfg=loadCfg();
-if(cfg){document.getElementById('inputName').value=cfg.name;document.getElementById('inputKey').value=cfg.key;document.getElementById('inputFolder').value=cfg.folder;fetchPhotos(cfg.key,cfg.folder,null).then(ok=>{if(ok)showGallery();});}
+cfg = {
+  name: "Murciegalo Digital Art",
+  key: "AIzaSyCWvK5pa5XfuA64f5-5DGjh7bm-zYCSmwo",
+  folder: "AIzaSyCWvK5pa5XfuA64f5-5DGjh7bm-zYCSmwo" 
+};
 </script>
 </body>
 </html>
