@@ -45,8 +45,11 @@ nav a:hover{color:var(--ink);}
 .photo-caption{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:#f5f2ed;}
 .lightbox{position:fixed;inset:0;background:rgba(14,14,14,.96);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s;}
 .lightbox.open{opacity:1;pointer-events:all;}
+.lb-img-wrap{display:flex;align-items:center;justify-content:center;max-width:88vw;max-height:88vh;}
 .lightbox img{max-width:88vw;max-height:88vh;object-fit:contain;transform:scale(.95);transition:transform .4s;}
 .lightbox.open img{transform:scale(1);}
+.lb-spinner{width:40px;height:40px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;position:absolute;}
+@keyframes spin{to{transform:rotate(360deg);}}
 .lb-close{position:absolute;top:2rem;right:2.5rem;font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);cursor:none;transition:color .3s;}
 .lb-close:hover{color:var(--paper);}
 .lb-counter{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);font-size:.58rem;letter-spacing:.3em;color:var(--muted);}
@@ -96,7 +99,10 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 <div class="lightbox" id="lightbox">
   <div class="lb-close" id="lbClose">Cerrar</div>
   <button class="lb-nav lb-prev" id="lbPrev">← Prev</button>
-  <img id="lbImg" src="" alt="">
+  <div class="lb-img-wrap">
+    <div class="lb-spinner" id="lbSpinner"></div>
+    <img id="lbImg" src="" alt="" style="display:none;">
+  </div>
   <button class="lb-nav lb-next" id="lbNext">Sig →</button>
   <div class="lb-counter" id="lbCounter"></div>
 </div>
@@ -117,13 +123,23 @@ async function init(){
     const url=`https://www.googleapis.com/drive/v3/files?q=%27${FOLDER_ID}%27+in+parents+and+mimeType+contains+%27image/%27+and+trashed%3Dfalse&fields=files(id,name)&pageSize=100&key=${API_KEY}`;
     const res=await fetch(url);
     const data=await res.json();
-    if(data.error||!data.files||!data.files.length){document.getElementById('galleryContent').innerHTML='<p style="text-align:center;padding:4rem;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">No se encontraron imágenes.</p>';return;}
-    photos=data.files.map(f=>({name:f.name.replace(/\.[^.]+$/,''),url:`https://drive.google.com/uc?export=view&id=${f.id}`,thumb:`https://drive.google.com/thumbnail?id=${f.id}&sz=w800`}));
-    const grid=document.createElement('div');grid.className='masonry';
+    if(data.error||!data.files||!data.files.length){
+      document.getElementById('galleryContent').innerHTML='<p style="text-align:center;padding:4rem;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">No se encontraron imágenes.</p>';
+      return;
+    }
+    photos=data.files.map(f=>({
+      id:f.id,
+      name:f.name.replace(/\.[^.]+$/,''),
+      thumb:`https://drive.google.com/thumbnail?id=${f.id}&sz=w800`
+    }));
+    const grid=document.createElement('div');
+    grid.className='masonry';
     photos.forEach((p,i)=>{
-      const item=document.createElement('div');item.className='photo-item';
-      item.innerHTML=`<img src="${p.thumb}" alt="${p.name}" loading="lazy" onerror="this.src='${p.url}'"><div class="photo-overlay"><span class="photo-caption">${p.name}</span></div>`;
-      item.onclick=()=>openLb(i);grid.appendChild(item);
+      const item=document.createElement('div');
+      item.className='photo-item';
+      item.innerHTML=`<img src="${p.thumb}" alt="${p.name}" loading="lazy"><div class="photo-overlay"><span class="photo-caption">${p.name}</span></div>`;
+      item.onclick=()=>openLb(i);
+      grid.appendChild(item);
     });
     document.getElementById('galleryContent').innerHTML='';
     document.getElementById('galleryContent').appendChild(grid);
@@ -134,8 +150,29 @@ async function init(){
   }
 }
 
-function openLb(i){lbIdx=i;updLb();document.getElementById('lightbox').classList.add('open');}
-function updLb(){document.getElementById('lbImg').src=photos[lbIdx].url;document.getElementById('lbCounter').textContent=(lbIdx+1)+' / '+photos.length;}
+function openLb(i){
+  lbIdx=i;
+  updLb();
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function updLb(){
+  const img=document.getElementById('lbImg');
+  const spinner=document.getElementById('lbSpinner');
+  img.style.display='none';
+  spinner.style.display='block';
+  // Usar thumbnail en alta resolución — evita bloqueos de CORS de Drive
+  img.src='';
+  img.src=`https://drive.google.com/thumbnail?id=${photos[lbIdx].id}&sz=w1600`;
+  img.onload=()=>{spinner.style.display='none';img.style.display='block';};
+  img.onerror=()=>{
+    // fallback: intentar con sz=w1200
+    img.src=`https://drive.google.com/thumbnail?id=${photos[lbIdx].id}&sz=w1200`;
+    img.onload=()=>{spinner.style.display='none';img.style.display='block';};
+  };
+  document.getElementById('lbCounter').textContent=(lbIdx+1)+' / '+photos.length;
+}
+
 document.getElementById('lbClose').onclick=()=>document.getElementById('lightbox').classList.remove('open');
 document.getElementById('lightbox').onclick=e=>{if(e.target===document.getElementById('lightbox'))document.getElementById('lightbox').classList.remove('open');};
 document.getElementById('lbPrev').onclick=e=>{e.stopPropagation();lbIdx=(lbIdx-1+photos.length)%photos.length;updLb();};
